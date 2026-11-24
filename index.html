@@ -1,0 +1,1021 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Perplexity Explorer</title>
+  <style>
+    :root {
+      --bg: #080b16;
+      --secondary: #0d1224;
+      --card: rgba(19,27,48,.78);
+      --elevated: #151d35;
+      --cyan: #22d3ee;
+      --violet: #8b5cf6;
+      --pink: #f472b6;
+      --success: #a3e635;
+      --error: #fb7185;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --border: rgba(148,163,184,.16);
+      --radius: 18px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 82% 8%, rgba(139,92,246,.13), transparent 27rem),
+        radial-gradient(circle at 12% 28%, rgba(34,211,238,.08), transparent 24rem),
+        var(--bg);
+    }
+    body.light {
+      --bg: #edf3f8;
+      --secondary: #f7fafc;
+      --card: rgba(255,255,255,.88);
+      --elevated: #eef3f8;
+      --text: #172033;
+      --muted: #60708a;
+      --border: rgba(71,85,105,.18);
+    }
+    button, input, textarea, select { font: inherit; }
+    button, select { cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: .55; }
+    .topbar {
+      height: 74px;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 4%;
+      border-bottom: 1px solid var(--border);
+      background: rgba(8,11,22,.82);
+      backdrop-filter: blur(18px);
+    }
+    body.light .topbar { background: rgba(237,243,248,.88); }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-mark {
+      width: 42px; height: 42px; border-radius: 12px;
+      display: grid; place-items: center;
+      background: linear-gradient(135deg, var(--cyan), var(--violet));
+      box-shadow: 0 8px 28px rgba(34,211,238,.16);
+      color: #07111f; font-weight: 900;
+    }
+    .brand h1 { margin: 0; font-size: 17px; letter-spacing: -.2px; }
+    .brand p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
+    .nav-actions { display: flex; align-items: center; gap: 8px; }
+    .status-pill {
+      min-height: 36px; display: flex; align-items: center; gap: 8px;
+      padding: 7px 11px; border: 1px solid var(--border); border-radius: 999px;
+      background: var(--card); color: var(--muted); font-size: 12px;
+    }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+    .status-dot.running { background: var(--cyan); box-shadow: 0 0 12px var(--cyan); animation: pulse 1.4s infinite; }
+    .status-dot.ready { background: var(--success); }
+    .status-dot.error { background: var(--error); }
+    .icon-btn {
+      width: 38px; height: 38px; border: 1px solid var(--border); border-radius: 11px;
+      background: var(--card); color: var(--text); display: grid; place-items: center;
+    }
+    .layout {
+      width: min(1440px, 92%);
+      margin: 28px auto 60px;
+      display: grid;
+      grid-template-columns: minmax(0, 7fr) minmax(260px, 3fr);
+      gap: 20px;
+      align-items: start;
+    }
+    .main-column, .sidebar { display: grid; gap: 20px; }
+    .sidebar { position: sticky; top: 94px; }
+    .card {
+      position: relative;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--card);
+      backdrop-filter: blur(14px);
+      box-shadow: 0 18px 50px rgba(0,0,0,.12);
+      overflow: hidden;
+    }
+    .card-inner { padding: 22px; }
+    .card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+    .card h2 { margin: 0 0 5px; font-size: 17px; }
+    .subtitle { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .section-title { display: flex; align-items: center; gap: 9px; }
+    .section-icon {
+      width: 31px; height: 31px; border-radius: 9px; display: grid; place-items: center;
+      background: rgba(34,211,238,.1); color: var(--cyan); border: 1px solid rgba(34,211,238,.16);
+    }
+    textarea {
+      width: 100%; min-height: 142px; resize: vertical; border: 1px solid var(--border);
+      border-radius: 14px; background: rgba(8,11,22,.5); color: var(--text);
+      outline: none; padding: 16px; line-height: 1.6; font-size: 16px;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    body.light textarea { background: rgba(255,255,255,.75); }
+    textarea:focus { border-color: rgba(34,211,238,.55); box-shadow: 0 0 0 3px rgba(34,211,238,.08); }
+    .input-meta { display:flex; justify-content:space-between; align-items:center; margin-top:10px; color:var(--muted); font-size:12px; }
+    .meta-counts { display:flex; gap:14px; }
+    .sample-list { display:flex; flex-wrap:wrap; gap:8px; margin:16px 0; }
+    .chip {
+      border: 1px solid var(--border); border-radius: 999px; padding: 8px 11px;
+      background: rgba(148,163,184,.05); color: var(--muted); font-size:12px;
+    }
+    .chip:hover { color: var(--text); border-color: rgba(34,211,238,.35); }
+    .actions { display:flex; gap:8px; justify-content:flex-end; margin-top:14px; }
+    .btn {
+      min-height: 38px; border: 1px solid var(--border); border-radius: 10px;
+      padding: 8px 13px; color: var(--text); background: var(--elevated);
+    }
+    .btn.primary {
+      border: 0; color: #08111f; font-weight: 800;
+      background: linear-gradient(135deg, var(--cyan), #67e8f9 45%, var(--violet));
+      box-shadow: 0 9px 24px rgba(34,211,238,.12);
+    }
+    .btn.danger { color: var(--error); }
+    .btn.small { min-height:32px; padding:6px 9px; font-size:12px; }
+    .token-strip { display:flex; flex-wrap:wrap; gap:8px; min-height:48px; }
+    .token-chip {
+      border:1px solid var(--border); border-radius:10px; padding:9px 10px 7px;
+      background:rgba(34,211,238,.07); cursor:pointer; transition:.18s;
+    }
+    .token-chip.word { background:rgba(34,211,238,.07); }
+    .token-chip.punct { background:rgba(244,114,182,.08); }
+    .token-chip.whitespace { background:rgba(139,92,246,.09); }
+    .token-chip.special { background:rgba(163,230,53,.09); }
+    .token-chip.active { border-color:var(--cyan); box-shadow:0 0 18px rgba(34,211,238,.12); transform:translateY(-2px); }
+    .token-text { display:block; font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:13px; }
+    .token-meta { display:block; margin-top:4px; color:var(--muted); font-size:10px; }
+    .token-details {
+      display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-top:14px;
+      padding-top:14px; border-top:1px solid var(--border);
+    }
+    .detail strong { display:block; margin-top:4px; font-size:12px; }
+    .detail span { color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.08em; }
+    .two-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+    .empty {
+      min-height:120px; display:grid; place-items:center; text-align:center;
+      border:1px dashed var(--border); border-radius:13px; color:var(--muted);
+      background:rgba(8,11,22,.18); font-size:13px;
+    }
+    .table-tools { display:flex; gap:8px; margin-bottom:12px; }
+    input, select {
+      border:1px solid var(--border); border-radius:9px; background:rgba(8,11,22,.45);
+      color:var(--text); min-height:36px; padding:7px 9px; outline:none;
+    }
+    body.light input, body.light select { background:white; }
+    .table-tools input { flex:1; }
+    .table-wrap { overflow:auto; max-height:390px; }
+    table { width:100%; border-collapse:collapse; font-size:12px; }
+    th, td { padding:10px 8px; border-bottom:1px solid var(--border); text-align:right; white-space:nowrap; }
+    th { color:var(--muted); position:sticky; top:0; background:var(--elevated); cursor:pointer; z-index:2; }
+    th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align:left; }
+    tbody tr:hover { background:rgba(34,211,238,.04); }
+    .perplexity-card {
+      background:
+        linear-gradient(145deg, rgba(34,211,238,.08), rgba(139,92,246,.08)),
+        var(--card);
+    }
+    .perplexity-layout { display:grid; grid-template-columns:260px 1fr; gap:22px; align-items:center; }
+    .score-box { text-align:center; padding:18px; border-right:1px solid var(--border); }
+    .score { font-size:54px; line-height:1; font-weight:850; letter-spacing:-4px;
+      background:linear-gradient(135deg,var(--cyan),#a78bfa); -webkit-background-clip:text; color:transparent; }
+    .score-label { margin-top:8px; color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.12em; }
+    .metric-row { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:14px; }
+    .metric { border:1px solid var(--border); border-radius:10px; padding:10px; background:rgba(8,11,22,.18); }
+    .metric span { display:block; color:var(--muted); font-size:10px; }
+    .metric strong { display:block; margin-top:5px; font-size:14px; }
+    .steps { display:grid; gap:7px; }
+    .step { display:flex; gap:10px; align-items:flex-start; color:var(--muted); font-size:12px; }
+    .step-num { width:23px; height:23px; flex:0 0 23px; display:grid; place-items:center;
+      border-radius:7px; background:rgba(139,92,246,.12); color:#b8a4ff; font-weight:800; }
+    .prediction-row {
+      display:grid; grid-template-columns:30px 1fr 70px 72px; gap:10px; align-items:center;
+      border:1px solid transparent; border-radius:10px; padding:9px; margin-bottom:7px;
+    }
+    .prediction-row:first-child { border-color:rgba(34,211,238,.18); background:linear-gradient(90deg,rgba(34,211,238,.09),rgba(139,92,246,.06)); }
+    .rank { color:var(--muted); font-size:11px; }
+    .pred-token { font-family:ui-monospace, monospace; overflow:hidden; text-overflow:ellipsis; }
+    .bar-track { height:6px; border-radius:99px; background:rgba(148,163,184,.12); overflow:hidden; }
+    .bar-fill { height:100%; width:0; border-radius:99px; background:linear-gradient(90deg,var(--cyan),var(--violet)); transition:width .7s ease; }
+    .prediction-meta { text-align:right; }
+    .prediction-meta small { display:block; color:var(--muted); }
+    .generation-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:9px; margin:14px 0; }
+    .control label { display:block; color:var(--muted); font-size:10px; margin-bottom:5px; }
+    .control input { width:100%; }
+    .generation-output { margin-top:12px; padding:14px; border:1px solid var(--border); border-radius:12px; min-height:90px;
+      background:rgba(8,11,22,.28); line-height:1.65; white-space:pre-wrap; }
+    .generation-output .original { color:var(--text); }
+    .generation-output .generated { color:var(--cyan); }
+    .heatmap { display:flex; flex-wrap:wrap; gap:7px; min-height:72px; }
+    .heat-cell {
+      min-width:54px; max-width:150px; height:54px; border:1px solid var(--border); border-radius:9px;
+      padding:7px; display:flex; flex-direction:column; justify-content:space-between;
+      font-family:ui-monospace, monospace; overflow:hidden; position:relative;
+    }
+    .heat-cell span:last-child { font-family:Inter,system-ui,sans-serif; font-size:9px; color:var(--muted); }
+    .legend { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:10px; }
+    .legend-bar { width:140px; height:7px; border-radius:99px; background:linear-gradient(90deg,rgba(34,211,238,.12),var(--cyan),var(--violet),var(--pink)); }
+    .sandbox-row { display:grid; grid-template-columns:1fr 140px 38px; gap:8px; margin-bottom:8px; }
+    .sandbox-row input { width:100%; }
+    .remove-row { border:1px solid var(--border); border-radius:9px; background:var(--elevated); color:var(--error); }
+    .sandbox-result { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:14px; }
+    .sandbox-result .metric { text-align:center; }
+    .badge { border:1px solid rgba(244,114,182,.25); background:rgba(244,114,182,.08); color:var(--pink);
+      border-radius:999px; padding:6px 9px; font-size:9px; letter-spacing:.08em; font-weight:800; }
+    .side-card { padding:18px; }
+    .side-row { display:flex; justify-content:space-between; gap:12px; padding:9px 0; border-bottom:1px solid var(--border); font-size:12px; }
+    .side-row:last-child { border-bottom:0; }
+    .side-row span { color:var(--muted); }
+    .progress { height:6px; border-radius:99px; background:rgba(148,163,184,.12); overflow:hidden; margin:10px 0 5px; }
+    .progress-fill { height:100%; width:0; background:linear-gradient(90deg,var(--cyan),var(--violet)); transition:width .25s; }
+    .progress-text { color:var(--muted); font-size:10px; min-height:14px; }
+    .quick-toggle { display:flex; align-items:center; justify-content:space-between; padding:10px 0; color:var(--muted); font-size:12px; }
+    .tip { border-left:2px solid var(--violet); padding:8px 10px; background:rgba(139,92,246,.05); color:var(--muted); font-size:12px; line-height:1.55; }
+    .modal-backdrop { position:fixed; inset:0; z-index:40; display:none; place-items:center; background:rgba(3,6,14,.68); backdrop-filter:blur(8px); }
+    .modal-backdrop.open { display:grid; }
+    .modal { width:min(520px,90vw); border:1px solid var(--border); border-radius:18px; background:var(--secondary); padding:22px; box-shadow:0 24px 80px rgba(0,0,0,.35); }
+    .modal h2 { margin-top:0; }
+    .modal p, .modal li { color:var(--muted); line-height:1.65; font-size:13px; }
+    .close-row { display:flex; justify-content:flex-end; }
+    .tooltip { position:relative; border-bottom:1px dotted var(--muted); }
+    .tooltip:hover::after {
+      content:attr(data-tip); position:absolute; z-index:30; bottom:calc(100% + 8px); left:50%; transform:translateX(-50%);
+      width:220px; padding:9px; border:1px solid var(--border); border-radius:8px;
+      background:var(--elevated); color:var(--text); font-size:11px; line-height:1.45; box-shadow:0 12px 30px rgba(0,0,0,.25);
+    }
+    @keyframes pulse { 50% { opacity:.45; } }
+    @media (prefers-reduced-motion: reduce) { * { scroll-behavior:auto!important; transition:none!important; } }
+    body.no-motion * { transition:none!important; animation:none!important; }
+    @media (max-width: 980px) {
+      .layout { grid-template-columns:1fr; }
+      .sidebar { position:static; grid-template-columns:repeat(2,1fr); }
+      .perplexity-layout { grid-template-columns:220px 1fr; }
+    }
+    @media (max-width: 680px) {
+      .topbar { height:auto; min-height:68px; padding:10px 3%; }
+      .brand p, .status-pill { display:none; }
+      .layout { width:94%; margin-top:16px; }
+      .sidebar, .two-grid { grid-template-columns:1fr; }
+      .token-details { grid-template-columns:repeat(2,1fr); }
+      .perplexity-layout { grid-template-columns:1fr; }
+      .score-box { border-right:0; border-bottom:1px solid var(--border); }
+      .generation-grid { grid-template-columns:repeat(2,1fr); }
+      .prediction-row { grid-template-columns:24px 1fr 58px 62px; }
+      .card-inner { padding:16px; }
+      .score { font-size:44px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">AI</div>
+      <div><h1>Perplexity Explorer</h1><p>Understand how language models think</p></div>
+    </div>
+    <div class="nav-actions">
+      <div class="status-pill"><span id="statusDot" class="status-dot"></span><span id="statusText">Waiting for input</span></div>
+      <button class="icon-btn" id="themeBtn" title="Toggle theme" aria-label="Toggle theme">◐</button>
+      <button class="icon-btn" id="settingsBtn" title="Settings" aria-label="Settings">⚙</button>
+      <button class="icon-btn" id="infoBtn" title="About this project" aria-label="About this project">i</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <div class="main-column">
+      <section class="card" id="sentence-lab">
+        <div class="card-inner">
+          <div class="card-header">
+            <div>
+              <div class="section-title"><span class="section-icon">⌁</span><h2>Sentence Lab</h2></div>
+              <p class="subtitle">Enter a sentence and explore how the model understands it.</p>
+            </div>
+          </div>
+          <textarea id="sentenceInput" maxlength="500" aria-label="Sentence to analyze">I love Python</textarea>
+          <div class="input-meta">
+            <div class="meta-counts">
+              <span><b id="charCount">13</b> chars</span>
+              <span><b id="wordCount">3</b> words</span>
+              <span><b id="inputTokenCount">—</b> tokens</span>
+            </div>
+            <span id="validationText"></span>
+          </div>
+          <div class="sample-list" id="samples">
+            <button class="chip" data-sentence="I love Python">I love Python</button>
+            <button class="chip" data-sentence="Python love I">Python love I</button>
+            <button class="chip" data-sentence="The capital of France is Paris">The capital of France is Paris</button>
+            <button class="chip" data-sentence="Artificial intelligence is changing the world">Artificial intelligence is changing the world</button>
+            <button class="chip" data-sentence="I am learning machine learning">I am learning machine learning</button>
+          </div>
+          <div class="actions">
+            <button class="btn" id="clearBtn">Clear</button>
+            <button class="btn" id="resetBtn">Reset</button>
+            <button class="btn primary" id="analyzeBtn">Analyze sentence</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" id="tokens">
+        <div class="card-inner">
+          <div class="card-header">
+            <div>
+              <div class="section-title"><span class="section-icon">T</span><h2>Tokenization</h2></div>
+              <p class="subtitle tooltip" data-tip="Language models process tokens—subword pieces—not necessarily complete words.">Explore the model's subword representation</p>
+            </div>
+          </div>
+          <div class="token-strip" id="tokenStrip"><div class="empty" style="width:100%">Analyze a sentence to see real tokens.</div></div>
+          <div class="token-details" id="tokenDetails" style="display:none"></div>
+        </div>
+      </section>
+
+      <div class="two-grid">
+        <section class="card">
+          <div class="card-inner">
+            <div class="card-header">
+              <div><h2>Token Probability Analysis</h2><p class="subtitle">Actual likelihood assigned to each sentence token</p></div>
+              <label style="font-size:11px;color:var(--muted)"><input id="advancedToggle" type="checkbox" checked style="min-height:auto"> Advanced</label>
+            </div>
+            <div class="table-tools">
+              <input id="tableSearch" type="search" placeholder="Search tokens">
+              <select id="sortSelect" aria-label="Sort tokens">
+                <option value="index">Sort: index</option>
+                <option value="probability">Sort: probability</option>
+                <option value="id">Sort: token ID</option>
+              </select>
+            </div>
+            <div class="table-wrap" id="probabilityTable"><div class="empty">Waiting for model analysis.</div></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-inner">
+            <div class="card-header">
+              <div><h2>What does the model predict next?</h2><p class="subtitle">Top continuations at the final input position</p></div>
+              <select id="topCount" aria-label="Number of predictions">
+                <option>5</option><option selected>8</option><option>10</option><option>20</option>
+              </select>
+            </div>
+            <input id="predictionSearch" type="search" placeholder="Search predicted tokens" style="width:100%;margin-bottom:10px">
+            <div id="predictionList"><div class="empty">Waiting for model analysis.</div></div>
+          </div>
+        </section>
+      </div>
+
+      <section class="card perplexity-card">
+        <div class="card-inner">
+          <div class="card-header">
+            <div>
+              <h2>Perplexity Calculator</h2>
+              <p class="subtitle">How surprised is the model by this sequence?
+                <span class="tooltip" data-tip="Perplexity is not a direct measure of truth, intelligence, or grammatical correctness.">ⓘ</span>
+              </p>
+            </div>
+          </div>
+          <div class="perplexity-layout">
+            <div class="score-box"><div class="score" id="perplexityScore">—</div><div class="score-label">Perplexity</div></div>
+            <div>
+              <div class="metric-row">
+                <div class="metric"><span>Average NLL</span><strong id="averageNll">—</strong></div>
+                <div class="metric"><span>Sentence tokens</span><strong id="sentenceTokens">—</strong></div>
+                <div class="metric"><span>Total NLL</span><strong id="totalNll">—</strong></div>
+              </div>
+              <div class="steps">
+                <div class="step"><span class="step-num">1</span><span><b>Calculate token surprises</b><br><span id="step1">Waiting for analysis</span></span></div>
+                <div class="step"><span class="step-num">2</span><span><b>Calculate average surprise</b><br><span id="step2">Average NLL = Sum(-ln P) / N</span></span></div>
+                <div class="step"><span class="step-num">3</span><span><b>Calculate perplexity</b><br><span id="step3">Perplexity = exp(Average NLL)</span></span></div>
+              </div>
+            </div>
+          </div>
+          <p class="subtitle" style="margin-top:16px">Lower perplexity generally means the model considers the sequence more predictable.</p>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-inner">
+          <div class="card-header">
+            <div><h2>Continue the sentence</h2><p class="subtitle">Real local sampling—settings affect generation, not raw perplexity.</p></div>
+            <button class="btn danger small" id="stopGenerationBtn" disabled>Stop</button>
+          </div>
+          <div class="generation-grid">
+            <div class="control"><label>Maximum new tokens</label><input id="maxTokens" type="number" min="1" max="100" value="20"></div>
+            <div class="control"><label>Temperature</label><input id="temperature" type="number" min="0.1" max="2" step="0.1" value="0.8"></div>
+            <div class="control"><label>Top-k</label><input id="topK" type="number" min="1" max="100" value="50"></div>
+            <div class="control"><label>Top-p</label><input id="topP" type="number" min="0.05" max="1" step="0.05" value="0.95"></div>
+            <div class="control"><label>Repetition penalty</label><input id="repetitionPenalty" type="number" min="1" max="2" step="0.05" value="1.1"></div>
+          </div>
+          <div class="actions" style="justify-content:flex-start;margin:0">
+            <button class="btn primary" id="generateBtn" disabled>Generate continuation</button>
+            <button class="btn" id="useGeneratedBtn" disabled>Use generated text as input</button>
+          </div>
+          <div class="generation-output" id="generationOutput">Generated text will appear here after analysis.</div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-inner">
+          <div class="card-header">
+            <div><h2>Token Probability Heatmap</h2><p class="subtitle">Visualize actual token confidence or surprise</p></div>
+            <div>
+              <button class="btn small" id="probabilityView">Probability</button>
+              <button class="btn small" id="surpriseView">Surprise</button>
+            </div>
+          </div>
+          <div class="heatmap" id="heatmap"><div class="empty" style="width:100%">Waiting for model analysis.</div></div>
+          <div class="legend" style="margin-top:12px"><span>Low</span><div class="legend-bar"></div><span>High</span></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-inner">
+          <div class="card-header">
+            <div><h2>Perplexity Sandbox</h2><p class="subtitle">Experiment with probabilities without running the language model.</p></div>
+            <span class="badge">SIMULATED — NOT FROM THE MODEL</span>
+          </div>
+          <div id="sandboxRows"></div>
+          <div class="actions" style="justify-content:flex-start">
+            <button class="btn" id="addSandboxRow">+ Add token</button>
+            <button class="btn" id="clearSandbox">Clear all</button>
+            <button class="btn" id="resetSandbox">Reset</button>
+          </div>
+          <div class="sandbox-result" id="sandboxResult"></div>
+        </div>
+      </section>
+    </div>
+
+    <aside class="sidebar">
+      <section class="card side-card">
+        <h2>Model information</h2>
+        <div class="side-row"><span>Model</span><b id="modelName">DistilGPT-2</b></div>
+        <div class="side-row"><span>Type</span><b>Causal LM</b></div>
+        <div class="side-row"><span>Quantization</span><b>q8</b></div>
+        <div class="progress"><div class="progress-fill" id="downloadProgress"></div></div>
+        <div class="progress-text" id="downloadText">Lazy-loaded on first analysis</div>
+        <div class="side-row"><span>Inference</span><b id="localStatus">Waiting locally</b></div>
+      </section>
+      <section class="card side-card">
+        <h2>Token statistics</h2>
+        <div class="side-row"><span>Characters</span><b id="sideChars">13</b></div>
+        <div class="side-row"><span>Words</span><b id="sideWords">3</b></div>
+        <div class="side-row"><span>Tokens</span><b id="sideTokens">—</b></div>
+        <div class="side-row"><span>Vocabulary</span><b>50,257</b></div>
+      </section>
+      <section class="card side-card">
+        <h2>Quick settings</h2>
+        <div class="quick-toggle"><span>Reduced motion</span><input id="motionToggle" type="checkbox"></div>
+        <div class="quick-toggle"><span>Compact table</span><input id="compactToggle" type="checkbox"></div>
+      </section>
+      <section class="card side-card">
+        <h2>Learning tips</h2>
+        <div class="tip">A probability of 0.25 means the model assigned a 25% chance to that exact token at that position.</div>
+      </section>
+    </aside>
+  </main>
+
+  <div class="modal-backdrop" id="settingsModal">
+    <div class="modal">
+      <h2>Display settings</h2>
+      <p>Choose how the explorer presents data. Model loading and inference happen in your browser.</p>
+      <div class="quick-toggle"><span>Dark interface</span><input id="settingsTheme" type="checkbox" checked></div>
+      <div class="quick-toggle"><span>Reduce animations</span><input id="settingsMotion" type="checkbox"></div>
+      <div class="close-row"><button class="btn" data-close-modal>Close</button></div>
+    </div>
+  </div>
+  <div class="modal-backdrop" id="infoModal">
+    <div class="modal">
+      <h2>About Perplexity Explorer</h2>
+      <p>This educational tool loads DistilGPT-2 through Transformers.js, tokenizes text, evaluates token probabilities, and calculates perplexity entirely in your browser.</p>
+      <ul>
+        <li>No API key or backend is required.</li>
+        <li>Model files are downloaded from Hugging Face after your first analysis.</li>
+        <li>Perplexity is computed from real model logits using negative log likelihood.</li>
+        <li>Generated text is distinct from the original sentence.</li>
+      </ul>
+      <div class="close-row"><button class="btn" data-close-modal>Close</button></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { AutoTokenizer, AutoModelForCausalLM, Tensor } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3";
+
+    const MODEL_ID = "Xenova/distilgpt2";
+    const BOS_ID = 50256;
+    let tokenizer = null;
+    let model = null;
+    let isLoading = false;
+    let isAnalyzing = false;
+    let stopRequested = false;
+    let analysis = null;
+    let currentHeatView = "probability";
+    let generatedText = "";
+
+    const $ = (id) => document.getElementById(id);
+
+    function setStatus(text, state = "") {
+      $("statusText").textContent = text;
+      $("statusDot").className = "status-dot" + (state ? " " + state : "");
+    }
+
+    function formatNumber(value, digits = 6) {
+      if (!Number.isFinite(value)) return "—";
+      if (value > 0 && value < 0.0001) return value.toExponential(3);
+      return value.toLocaleString(undefined, { maximumFractionDigits: digits });
+    }
+
+    function formatPercent(value) {
+      if (value >= 0.0001) return (value * 100).toFixed(value < 0.01 ? 4 : 2) + "%";
+      return (value * 100).toExponential(2) + "%";
+    }
+
+    function makeVisibleToken(text) {
+      if (!text) return "␀";
+      return text.replace(/ /g, "␣").replace(/\n/g, "↵");
+    }
+
+    function classifyToken(text, id) {
+      if (id === BOS_ID) return "special";
+      if (/^[.,!?;:'"()[\]{}]+$/.test(text)) return "punct";
+      if (text.includes(" ") || text.includes("\n") || text.includes("␣")) return "whitespace";
+      return "word";
+    }
+
+    function updateInputMeta() {
+      const text = $("sentenceInput").value;
+      const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+      $("charCount").textContent = text.length;
+      $("wordCount").textContent = words;
+      $("sideChars").textContent = text.length;
+      $("sideWords").textContent = words;
+      $("validationText").textContent = text.length > 500 ? "Maximum 500 characters" : "";
+    }
+
+    async function loadModel() {
+      if (model && tokenizer) return;
+      if (isLoading) return;
+      isLoading = true;
+      try {
+        setStatus("Downloading tokenizer", "running");
+        $("downloadText").textContent = "Downloading tokenizer";
+        const progress = (report) => {
+          if (!report) return;
+          if (typeof report.progress === "number") {
+            const pct = Math.max(0, Math.min(100, report.progress));
+            $("downloadProgress").style.width = pct + "%";
+            $("downloadText").textContent = report.status ? `${report.status} · ${pct.toFixed(1)}%` : `${pct.toFixed(1)}%`;
+          } else if (report.status) {
+            $("downloadText").textContent = report.status;
+          }
+        };
+        tokenizer = await AutoTokenizer.from_pretrained(MODEL_ID, { progress_callback: progress });
+        setStatus("Downloading model", "running");
+        $("downloadText").textContent = "Downloading model";
+        model = await AutoModelForCausalLM.from_pretrained(MODEL_ID, {
+          dtype: "q8",
+          progress_callback: progress
+        });
+        setStatus("Initializing model", "running");
+        await new Promise(resolve => setTimeout(resolve, 50));
+        setStatus("Model ready", "ready");
+        $("downloadText").textContent = "Model ready";
+        $("downloadProgress").style.width = "100%";
+        $("localStatus").textContent = "Running locally";
+      } catch (error) {
+        console.error(error);
+        setStatus("Error", "error");
+        $("downloadText").textContent = "Could not load model";
+        $("localStatus").textContent = "Unavailable";
+        throw error;
+      } finally {
+        isLoading = false;
+      }
+    }
+
+    function stableSoftmax(logits, targetId, vocabSize, rowOffset = 0) {
+      let max = -Infinity;
+      for (let i = 0; i < vocabSize; i++) max = Math.max(max, logits[rowOffset + i]);
+      let sum = 0;
+      for (let i = 0; i < vocabSize; i++) sum += Math.exp(logits[rowOffset + i] - max);
+      const probability = Math.exp(logits[rowOffset + targetId] - max) / sum;
+      return { probability, sum, max };
+    }
+
+    function topPredictions(logits, vocabSize, rowOffset, count) {
+      const items = [];
+      for (let id = 0; id < vocabSize; id++) items.push({ id, logit: logits[rowOffset + id] });
+      items.sort((a, b) => b.logit - a.logit);
+      const selected = items.slice(0, count);
+      let max = selected[0].logit;
+      let sum = 0;
+      for (let id = 0; id < vocabSize; id++) sum += Math.exp(logits[rowOffset + id] - max);
+      for (const item of selected) item.probability = Math.exp(item.logit - max) / sum;
+      return selected;
+    }
+
+    function tensorToArray(tensor) {
+      return tensor.data instanceof BigInt64Array ? Array.from(tensor.data, value => Number(value)) : Array.from(tensor.data);
+    }
+
+    async function analyzeSentence() {
+      if (isAnalyzing) return;
+      const text = $("sentenceInput").value.trim();
+      if (!text) {
+        setStatus("Waiting for input");
+        $("validationText").textContent = "Enter a sentence first";
+        $("sentenceInput").focus();
+        return;
+      }
+      if (text.length > 500) {
+        setStatus("Error", "error");
+        $("validationText").textContent = "Sentence exceeds 500 characters";
+        return;
+      }
+
+      isAnalyzing = true;
+      $("analyzeBtn").disabled = true;
+      try {
+        await loadModel();
+        setStatus("Analyzing sentence", "running");
+        const encoded = await tokenizer(text, { add_special_tokens: false, return_tensor: false });
+        const sentenceIds = tensorToArray(encoded.input_ids);
+        if (!sentenceIds.length) throw new Error("The tokenizer produced no sentence tokens.");
+        const inputIds = [BOS_ID, ...sentenceIds];
+        const inputTensor = new Tensor("int64", new BigInt64Array(inputIds.map(BigInt)), [1, inputIds.length]);
+        const attentionTensor = new Tensor("int64", new BigInt64Array(inputIds.map(() => 1n)), [1, inputIds.length]);
+        const output = await model({ input_ids: inputTensor, attention_mask: attentionTensor });
+        const logits = output.logits.data;
+        const dims = output.logits.dims;
+        const seqLength = dims[1];
+        const vocabSize = dims[2];
+
+        const tokenRows = [];
+        let totalNll = 0;
+        for (let i = 0; i < sentenceIds.length; i++) {
+          const targetId = sentenceIds[i];
+          const logitsPosition = i;
+          const rowOffset = logitsPosition * vocabSize;
+          const { probability } = stableSoftmax(logits, targetId, vocabSize, rowOffset);
+          const safeProbability = Math.max(probability, Number.MIN_VALUE);
+          const nll = -Math.log(safeProbability);
+          totalNll += nll;
+          const decoded = await tokenizer.decode([targetId], { skip_special_tokens: false });
+          tokenRows.push({
+            index: i,
+            id: targetId,
+            text: decoded,
+            visible: makeVisibleToken(decoded),
+            probability,
+            nll,
+            inverse: 1 / safeProbability
+          });
+        }
+
+        const averageNll = totalNll / sentenceIds.length;
+        const perplexity = Math.exp(Math.min(averageNll, 700));
+        const finalPosition = seqLength - 1;
+        const nextPredictions = topPredictions(logits, vocabSize, finalPosition * vocabSize, 20);
+        analysis = { text, inputIds, sentenceIds, tokenRows, logits, dims, perplexity, averageNll, totalNll, nextPredictions };
+
+        renderTokens();
+        renderProbabilityTable();
+        renderPerplexity();
+        renderPredictions();
+        renderHeatmap();
+        $("generateBtn").disabled = false;
+        $("sideTokens").textContent = sentenceIds.length;
+        $("inputTokenCount").textContent = sentenceIds.length;
+        setStatus("Analysis complete", "ready");
+        $("localStatus").textContent = "Analysis running locally";
+      } catch (error) {
+        console.error(error);
+        setStatus("Error", "error");
+        $("validationText").textContent = error.message || "Analysis failed";
+      } finally {
+        isAnalyzing = false;
+        $("analyzeBtn").disabled = false;
+      }
+    }
+
+    function renderTokens() {
+      $("tokenStrip").innerHTML = analysis.tokenRows.map((token) => `
+        <button class="token-chip ${classifyToken(token.text, token.id)}" data-token-index="${token.index}" title="Token ${token.index} · ID ${token.id}">
+          <span class="token-text">${escapeHtml(token.visible)}</span>
+          <span class="token-meta">ID ${token.id} · #${token.index}</span>
+        </button>
+      `).join("");
+      $("tokenStrip").querySelectorAll(".token-chip").forEach(button => {
+        button.addEventListener("click", () => selectToken(Number(button.dataset.tokenIndex)));
+      });
+      if (analysis.tokenRows.length) selectToken(0);
+    }
+
+    function selectToken(index) {
+      $("tokenStrip").querySelectorAll(".token-chip").forEach(chip => chip.classList.toggle("active", Number(chip.dataset.tokenIndex) === index));
+      const token = analysis.tokenRows[index];
+      $("tokenDetails").style.display = "grid";
+      $("tokenDetails").innerHTML = `
+        <div class="detail"><span>Token ID</span><strong>${token.id}</strong></div>
+        <div class="detail"><span>Decoded text</span><strong>${escapeHtml(token.visible)}</strong></div>
+        <div class="detail"><span>Probability</span><strong>${formatPercent(token.probability)}</strong></div>
+        <div class="detail"><span>Negative log P</span><strong>${formatNumber(token.nll)}</strong></div>
+        <div class="detail"><span>Inverse probability</span><strong>${formatNumber(token.inverse, 3)}</strong></div>
+      `;
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, char => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[char]);
+    }
+
+    function renderProbabilityTable() {
+      const search = $("tableSearch").value.trim().toLower();
+      const sort = $("sortSelect").value;
+      let rows = [...analysis.tokenRows].filter(row =>
+        row.visible.toLower().includes(search) || String(row.id).includes(search)
+      );
+      if (sort === "probability") rows.sort((a,b) => b.probability - a.probability);
+      if (sort === "id") rows.sort((a,b) => a.id - b.id);
+      if (sort === "index") rows.sort((a,b) => a.index - b.index);
+      const advanced = $("advancedToggle").checked;
+      const advancedHeader = advanced ? "<th>NLL</th><th>1/P</th>" : "";
+      const advancedBody = row => advanced ? `<td>${formatNumber(row.nll)}</td><td>${formatNumber(row.inverse, 3)}</td>` : "";
+      $("probabilityTable").innerHTML = `
+        <table>
+          <thead><tr><th>Token</th><th>ID</th><th data-sort="probability">P</th><th>Percentage</th>${advancedHeader}</tr></thead>
+          <tbody>${rows.map(row => `
+            <tr><td>${escapeHtml(row.visible)}</td><td>${row.id}</td><td>${formatNumber(row.probability)}</td><td>${formatPercent(row.probability)}</td>${advancedBody(row)}</tr>
+          `).join("")}</tbody>
+        </table>`;
+    }
+
+    function renderPerplexity() {
+      $("perplexityScore").textContent = formatNumber(analysis.perplexity, 2);
+      $("averageNll").textContent = formatNumber(analysis.averageNll);
+      $("sentenceTokens").textContent = analysis.sentenceIds.length;
+      $("totalNll").textContent = formatNumber(analysis.totalNll);
+      $("step1").textContent = analysis.tokenRows.map(row => row.nll.toFixed(2)).join(", ");
+      $("step2").textContent = `(${formatNumber(analysis.totalNll)} / ${analysis.sentenceIds.length}) = ${formatNumber(analysis.averageNll)}`;
+      $("step3").textContent = `exp(${formatNumber(analysis.averageNll)}) = ${formatNumber(analysis.perplexity, 2)}`;
+    }
+
+    async function renderPredictions() {
+      const count = Number($("topCount").value);
+      const search = $("predictionSearch").value.trim().toLower();
+      const selected = analysis.nextPredictions.slice(0, count);
+      const decodedRows = await Promise.all(selected.map(async item => ({
+        ...item,
+        text: await tokenizer.decode([item.id], { skip_special_tokens: false })
+      })));
+      const filtered = decodedRows.filter(row =>
+        makeVisibleToken(row.text).toLower().includes(search) || String(row.id).includes(search)
+      );
+      $("predictionList").innerHTML = filtered.length ? filtered.map((row, index) => `
+        <div class="prediction-row">
+          <span class="rank">#${decodedRows.indexOf(row) + 1}</span>
+          <div><div class="pred-token">${escapeHtml(makeVisibleToken(row.text))}</div><div class="bar-track"><div class="bar-fill" data-width="${Math.max(1,row.probability*100)}"></div></div></div>
+          <div class="prediction-meta">${formatPercent(row.probability)}<small>ID ${row.id}</small></div>
+          <div>${formatNumber(row.probability)}</div>
+        </div>
+      `).join("") : `<div class="empty">No matching predictions.</div>`;
+      requestAnimationFrame(() => {
+        $("predictionList").querySelectorAll(".bar-fill").forEach(bar => bar.style.width = bar.dataset.width + "%");
+      });
+    }
+
+    function renderHeatmap() {
+      const probs = analysis.tokenRows.map(row => row.probability);
+      const nlls = analysis.tokenRows.map(row => row.nll);
+      const maxNll = Math.max(...nlls);
+      $("heatmap").innerHTML = analysis.tokenRows.map((row, i) => {
+        const probability = probs[i];
+        const surprise = nlls[i] / Math.max(maxNll, 0.0001);
+        let intensity;
+        let background;
+        if (currentHeatView === "probability") {
+          intensity = Math.min(1, probability * 8);
+          background = `rgba(34,211,238,${0.08 + intensity * 0.55})`;
+        } else {
+          intensity = surprise;
+          background = `rgba(244,114,182,${0.10 + intensity * 0.60})`;
+        }
+        return `<div class="heat-cell" style="background:${background}" title="${escapeHtml(row.visible)} · P=${formatNumber(row.probability)} · NLL=${formatNumber(row.nll)}">
+          <span>${escapeHtml(row.visible)}</span><span>${currentHeatView === "probability" ? formatPercent(row.probability) : row.nll.toFixed(2)}</span>
+        </div>`;
+      }).join("");
+    }
+
+    function softmaxArray(values) {
+      const max = Math.max(...values);
+      const exps = values.map(v => Math.exp(v - max));
+      const sum = exps.reduce((a,b) => a+b, 0);
+      return exps.map(v => v/sum);
+    }
+
+    function sampleFromDistribution(probabilities) {
+      const random = Math.random();
+      let cumulative = 0;
+      for (let i = 0; i < probabilities.length; i++) {
+        cumulative += probabilities[i];
+        if (random <= cumulative) return i;
+      }
+      return probabilities.length - 1;
+    }
+
+    async function generateContinuation() {
+      if (!analysis || isAnalyzing) return;
+      stopRequested = false;
+      $("generateBtn").disabled = true;
+      $("stopGenerationBtn").disabled = false;
+      $("useGeneratedBtn").disabled = true;
+      setStatus("Generating continuation", "running");
+      const maxNew = Math.max(1, Math.min(100, Number($("maxTokens").value) || 20));
+      const temperature = Math.max(0.1, Number($("temperature").value) || 0.8);
+      const topK = Math.max(1, Math.min(100, Number($("topK").value) || 50));
+      const topP = Math.max(0.05, Math.min(1, Number($("topP").value) || 0.95));
+      const repetitionPenalty = Math.max(1, Number($("repetitionPenalty").value) || 1.1);
+      let ids = [...analysis.inputIds];
+      let newIds = [];
+      let streamed = "";
+
+      try {
+        for (let step = 0; step < maxNew; step++) {
+          if (stopRequested) break;
+          const inputTensor = new Tensor("int64", new BigInt64Array(ids.map(BigInt)), [1, ids.length]);
+          const attentionTensor = new Tensor("int64", new BigInt64Array(ids.map(() => 1n)), [1, ids.length]);
+          const output = await model({ input_ids: inputTensor, attention_mask: attentionTensor });
+          const logits = output.logits.data;
+          const vocabSize = output.logits.dims[2];
+          const rowOffset = (output.logits.dims[1] - 1) * vocabSize;
+          const adjusted = new Float32Array(vocabSize);
+
+          for (let id = 0; id < vocabSize; id++) {
+            let value = logits[rowOffset + id];
+            if (repetitionPenalty !== 1 && ids.includes(id)) {
+              value = value < 0 ? value * repetitionPenalty : value / repetitionPenalty;
+            }
+            adjusted[id] = value / temperature;
+          }
+
+          const ranked = Array.from(adjusted, (logit, id) => ({ id, logit }))
+            .sort((a,b) => b.logit - a.logit)
+            .slice(0, topK);
+          let cumulative = 0;
+          let allowed = [];
+          const probabilities = softmaxArray(ranked.map(item => item.logit));
+          for (let i = 0; i < ranked.length; i++) {
+            allowed.push({ id: ranked[i].id, probability: probabilities[i] });
+            cumulative += probabilities[i];
+            if (cumulative >= topP) break;
+          }
+          const allowedSum = allowed.reduce((sum, item) => sum + item.probability, 0);
+          const normalized = allowed.map(item => item.probability / allowedSum);
+          const choice = sampleFromDistribution(normalized);
+          const nextId = allowed[choice].id;
+          if (nextId === tokenizer.eos_token_id || nextId === tokenizer.sep_token_id) break;
+          newIds.push(nextId);
+          ids.push(nextId);
+          const piece = await tokenizer.decode([nextId], { skip_special_tokens: true });
+          streamed += piece;
+          $("generationOutput").innerHTML = `<span class="original">${escapeHtml(analysis.text)}</span><span class="generated">${escapeHtml(streamed)}</span>`;
+          await new Promise(resolve => setTimeout(resolve, 20));
+        }
+        generatedText = analysis.text + streamed;
+        $("useGeneratedBtn").disabled = !newIds.length;
+        setStatus(stopRequested ? "Generation stopped" : "Analysis complete", stopRequested ? "" : "ready");
+        $("generationOutput").innerHTML = `<span class="original">${escapeHtml(analysis.text)}</span><span class="generated">${escapeHtml(streamed || "[No continuation generated]")}</span>`;
+      } catch (error) {
+        console.error(error);
+        setStatus("Error", "error");
+        $("generationOutput").textContent = error.message || "Generation failed";
+      } finally {
+        $("generateBtn").disabled = false;
+        $("stopGenerationBtn").disabled = true;
+      }
+    }
+
+    function resetSandbox() {
+      const defaults = [
+        ["Tomorrow", 0.3],
+        ["is", 0.25],
+        ["beautiful", 0.1],
+        ["outside", 0.35]
+      ];
+      $("sandboxRows").innerHTML = defaults.map(([name, probability]) => sandboxRow(name, probability)).join("");
+      bindSandboxRows();
+      calculateSandbox();
+    }
+
+    function sandboxRow(name = "", probability = 0.5) {
+      return `<div class="sandbox-row">
+        <input class="sandbox-name" type="text" value="${escapeHtml(name)}" placeholder="Token name">
+        <input class="sandbox-probability" type="number" min="0" max="1" step="0.01" value="${probability}">
+        <button class="remove-row" title="Remove token">×</button>
+      </div>`;
+    }
+
+    function bindSandboxRows() {
+      $("sandboxRows").querySelectorAll(".remove-row").forEach(button => {
+        button.onclick = () => { button.closest(".sandbox-row").remove(); calculateSandbox(); };
+      });
+      $("sandboxRows").querySelectorAll("input").forEach(input => input.oninput = calculateSandbox);
+    }
+
+    function calculateSandbox() {
+      const rows = [...document.querySelectorAll(".sandbox-row")];
+      const probabilities = rows.map(row => Number(row.querySelector(".sandbox-probability").value));
+      let valid = probabilities.length > 0;
+      let nll = 0;
+      rows.forEach((row, i) => {
+        const input = row.querySelector(".sandbox-probability");
+        const probability = probabilities[i];
+        if (!Number.isFinite(probability) || probability <= 0 || probability >= 1) {
+          valid = false;
+          input.style.borderColor = "var(--error)";
+        } else {
+          input.style.borderColor = "";
+          nll += -Math.log(probability);
+        }
+      });
+      if (!valid) {
+        $("sandboxResult").innerHTML = `<div class="metric" style="grid-column:1/-1"><span>Status</span><strong style="color:var(--error)">Each probability must be greater than 0 and less than 1</strong></div>`;
+        return;
+      }
+      const average = nll / probabilities.length;
+      const perplexity = Math.exp(Math.min(average, 700));
+      $("sandboxResult").innerHTML = `
+        <div class="metric"><span>Perplexity</span><strong>${formatNumber(perplexity, 3)}</strong></div>
+        <div class="metric"><span>Average NLL</span><strong>${formatNumber(average)}</strong></div>
+        <div class="metric"><span>Total NLL</span><strong>${formatNumber(nll)}</strong></div>`;
+    }
+
+    $("sentenceInput").addEventListener("input", updateInputMeta);
+    $("samples").addEventListener("click", event => {
+      const button = event.target.closest("[data-sentence]");
+      if (!button) return;
+      $("sentenceInput").value = button.dataset.sentence;
+      updateInputMeta();
+      $("sentenceInput").focus();
+    });
+    $("clearBtn").addEventListener("click", () => {
+      $("sentenceInput").value = "";
+      updateInputMeta();
+      $("sentenceInput").focus();
+    });
+    $("resetBtn").addEventListener("click", () => {
+      $("sentenceInput").value = "I love Python";
+      updateInputMeta();
+    });
+    $("analyzeBtn").addEventListener("click", analyzeSentence);
+    $("tableSearch").addEventListener("input", () => analysis && renderProbabilityTable());
+    $("sortSelect").addEventListener("change", () => analysis && renderProbabilityTable());
+    $("advancedToggle").addEventListener("change", () => analysis && renderProbabilityTable());
+    $("topCount").addEventListener("change", () => analysis && renderPredictions());
+    $("predictionSearch").addEventListener("input", () => analysis && renderPredictions());
+    $("probabilityView").addEventListener("click", () => { currentHeatView = "probability"; analysis && renderHeatmap(); });
+    $("surpriseView").addEventListener("click", () => { currentHeatView = "surprise"; analysis && renderHeatmap(); });
+    $("generateBtn").addEventListener("click", generateContinuation);
+    $("stopGenerationBtn").addEventListener("click", () => { stopRequested = true; setStatus("Stopping generation", ""); });
+    $("useGeneratedBtn").addEventListener("click", () => {
+      if (!generatedText) return;
+      $("sentenceInput").value = generatedText;
+      updateInputMeta();
+      $("sentence-lab").scrollIntoView({ behavior: "smooth" });
+      $("sentenceInput").focus();
+    });
+    $("addSandboxRow").addEventListener("click", () => {
+      $("sandboxRows").insertAdjacentHTML("beforeend", sandboxRow("", 0.5));
+      bindSandboxRows();
+      calculateSandbox();
+    });
+    $("clearSandbox").addEventListener("click", () => { $("sandboxRows").innerHTML = ""; calculateSandbox(); });
+    $("resetSandbox").addEventListener("click", resetSandbox);
+
+    $("themeBtn").addEventListener("click", () => {
+      document.body.classList.toggle("light");
+      $("settingsTheme").checked = !document.body.classList.contains("light");
+    });
+    $("motionToggle").addEventListener("change", event => {
+      document.body.classList.toggle("no-motion", event.target.checked);
+      $("settingsMotion").checked = event.target.checked;
+    });
+    $("settingsMotion").addEventListener("change", event => {
+      document.body.classList.toggle("no-motion", event.target.checked);
+      $("motionToggle").checked = event.target.checked;
+    });
+    $("compactToggle").addEventListener("change", event => {
+      document.querySelectorAll("td, th").forEach(cell => cell.style.padding = event.target.checked ? "6px 5px" : "");
+    });
+    $("settingsTheme").addEventListener("change", event => document.body.classList.toggle("light", !event.target.checked));
+    $("settingsBtn").addEventListener("click", () => $("settingsModal").classList.add("open"));
+    $("infoBtn").addEventListener("click", () => $("infoModal").classList.add("open"));
+    document.querySelectorAll("[data-close-modal]").forEach(button => button.addEventListener("click", () => button.closest(".modal-backdrop").classList.remove("open")));
+    document.querySelectorAll(".modal-backdrop").forEach(backdrop => backdrop.addEventListener("click", event => {
+      if (event.target === backdrop) backdrop.classList.remove("open");
+    }));
+
+    updateInputMeta();
+    resetSandbox();
+  </script>
+</body>
+</html>
